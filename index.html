@@ -19,7 +19,7 @@ body{
   padding:20px;
 }
 .card{
-  max-width:560px;
+  max-width:540px;
   width:100%;
   background:#fff;
   border-radius:18px;
@@ -45,7 +45,6 @@ button{
   cursor:pointer;
 }
 button.secondary{background:#0f766e;}
-button.danger{background:#b91c1c;}
 button:hover{opacity:.9}
 .divider{text-align:center;margin:20px 0;color:#94a3b8;}
 .result{
@@ -59,46 +58,47 @@ button:hover{opacity:.9}
 .good{color:#15803d;font-weight:600;}
 .bad{color:#b91c1c;font-weight:600;}
 .loading{text-align:center;color:#b45309;margin-top:10px;}
-.preview img, video{
-  width:100%;
+.preview img{
+  max-width:100%;
   margin-top:10px;
   border-radius:10px;
 }
 .footer{text-align:center;font-size:12px;color:#94a3b8;margin-top:18px;}
-.hidden{display:none;}
 </style>
 </head>
 
 <body>
 
 <div class="card">
-<h2>MUHZTECH 🇳🇬 PAYE Comparison</h2>
+<h2>🇳🇬 PAYE Comparison</h2>
 <p class="subtitle">Old PAYE vs New Nigerian Tax Reform</p>
 
-<!-- MANUAL -->
+<!-- MANUAL ENTRY -->
 <label>Monthly Gross Salary (₦)</label>
-<input type="number" id="manualSalary">
+<input type="number" id="manualSalary" placeholder="e.g. 92508">
 
 <label>Current Monthly PAYE (₦)</label>
-<input type="number" id="manualOldPAYE">
+<input type="number" id="manualOldPAYE" placeholder="e.g. 5053">
 
 <button onclick="manualCompare()">Compare PAYE</button>
 
-<div class="divider">— PAYSLIP OPTIONS —</div>
+<div class="divider">— OR USE PAYSLIP —</div>
 
-<!-- FILE UPLOAD -->
+<!-- FILE PICKER -->
 <label>Choose Payslip Image</label>
 <input type="file" id="fileInput" accept="image/*">
 
-<!-- CAMERA CONTROLS -->
-<button class="secondary" onclick="startCamera()">📷 Start Live Camera</button>
-<button class="danger hidden" id="stopBtn" onclick="stopCamera()">✖ Stop Camera</button>
-<button class="secondary hidden" id="scanBtn" onclick="scanFrame()">🔍 Scan from Camera</button>
+<!-- CAMERA BUTTON -->
+<button class="secondary" onclick="openCamera()">📷 Capture from Camera</button>
 
-<!-- VIDEO PREVIEW -->
-<video id="video" autoplay playsinline class="hidden"></video>
+<!-- HIDDEN CAMERA INPUT -->
+<input 
+  type="file" 
+  id="cameraInput" 
+  accept="image/*" 
+  capture="environment"
+  style="display:none">
 
-<!-- IMAGE PREVIEW -->
 <div class="preview" id="preview"></div>
 
 <button onclick="processPayslip()">Process Payslip</button>
@@ -108,8 +108,6 @@ button:hover{opacity:.9}
 
 <div class="footer">© 2026 Muhztech PAYE Automation</div>
 </div>
-
-<canvas id="canvas" class="hidden"></canvas>
 
 <script>
 /* ===== TAX LOGIC ===== */
@@ -141,74 +139,51 @@ function computeNewPAYE(monthlyGross){
 function manualCompare(){
   const gross = Number(manualSalary.value);
   const oldPAYE = Number(manualOldPAYE.value);
-  if(gross<=0 || oldPAYE<0) return alert("Invalid input");
+  if(gross<=0 || oldPAYE<0){
+    alert("Enter valid values");
+    return;
+  }
   showComparison(gross, oldPAYE);
 }
 
-/* ===== FILE PICKER ===== */
-let selectedImage = null;
+/* ===== CAMERA ===== */
+function openCamera(){
+  cameraInput.click();
+}
 
-fileInput.addEventListener("change", e=>{
-  selectedImage = e.target.files[0];
-  if(!selectedImage) return;
+/* ===== PREVIEW & FILE STORE ===== */
+let selectedFile = null;
 
-  const r = new FileReader();
-  r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
-  r.readAsDataURL(selectedImage);
+[fileInput, cameraInput].forEach(input=>{
+  input.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+
+    selectedFile = f;
+
+    const r = new FileReader();
+    r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
+    r.readAsDataURL(f);
+  });
 });
-
-/* ===== LIVE CAMERA ===== */
-let stream = null;
-
-async function startCamera(){
-  stream = await navigator.mediaDevices.getUserMedia({
-    video:{facingMode:"environment"}
-  });
-  video.srcObject = stream;
-  video.classList.remove("hidden");
-  scanBtn.classList.remove("hidden");
-  stopBtn.classList.remove("hidden");
-}
-
-function stopCamera(){
-  if(stream){
-    stream.getTracks().forEach(t=>t.stop());
-    stream=null;
-  }
-  video.classList.add("hidden");
-  scanBtn.classList.add("hidden");
-  stopBtn.classList.add("hidden");
-}
-
-/* ===== CAPTURE FRAME ===== */
-function scanFrame(){
-  const canvas = document.getElementById("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video,0,0);
-
-  canvas.toBlob(blob=>{
-    selectedImage = blob;
-    preview.innerHTML = `<img src="${URL.createObjectURL(blob)}">`;
-    stopCamera();
-  });
-}
 
 /* ===== OCR ===== */
 function processPayslip(){
-  if(!selectedImage){
-    alert("Upload, capture, or scan a payslip");
+  if(!selectedFile){
+    alert("Upload or capture a payslip");
     return;
   }
 
-  loading.innerText="Reading payslip…";
+  loading.innerText="Reading payslip… Please wait";
 
-  Tesseract.recognize(selectedImage,"eng")
+  Tesseract.recognize(selectedFile,"eng")
   .then(({data:{text}})=>{
     loading.innerText="";
 
-    const t = text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
+    const t = text
+      .toUpperCase()
+      .replace(/₦|,/g,"")
+      .replace(/\s+/g," ");
 
     const gross =
       extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) ||
@@ -217,11 +192,17 @@ function processPayslip(){
     const oldPAYE =
       extract(t,["PAYE","PAY AS YOU EARN","TAX"]) || 0;
 
-    if(!gross) return alert("Gross Pay not detected");
+    if(!gross){
+      alert("Could not detect Gross Pay. Use manual entry.");
+      return;
+    }
 
     showComparison(gross, oldPAYE);
   })
-  .catch(()=>loading.innerText="OCR failed");
+  .catch(()=>{
+    loading.innerText="";
+    alert("OCR failed. Try clearer image.");
+  });
 }
 
 /* ===== DISPLAY ===== */
@@ -229,14 +210,18 @@ function showComparison(gross, oldPAYE){
   const newPAYE = computeNewPAYE(gross);
   const diff = oldPAYE - newPAYE;
 
+  const status =
+    diff > 0
+      ? `<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
+      : diff < 0
+        ? `<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
+        : `<span class="good">Correctly Taxed</span>`;
+
   result.innerHTML = `
     <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
     <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
     <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
-    <b>Status:</b>
-    ${diff>0?`<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`:
-      diff<0?`<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`:
-      `<span class="good">Correctly Taxed</span>`}
+    <b>Status:</b> ${status}
   `;
 }
 
@@ -249,13 +234,15 @@ function extract(text, keys){
   }
   return null;
 }
+
 function sumParts(text){
-  let sum=0;
+  let sum = 0;
   ["BASIC","HOUSING","TRANSPORT","ALLOWANCE","RENT"].forEach(k=>{
-    let r=new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
-    let m; while((m=r.exec(text))!==null) sum+=Number(m[1]);
+    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
+    let m;
+    while((m=r.exec(text))!==null) sum+=Number(m[1]);
   });
-  return sum||null;
+  return sum>0 ? sum : null;
 }
 </script>
 
