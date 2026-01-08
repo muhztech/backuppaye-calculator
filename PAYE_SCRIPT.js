@@ -1,4 +1,4 @@
-// ================= COMMON TAX LOGIC =================
+// ================== CONSTANTS ==================
 
 const EXEMPT_LIMIT = 1200000;
 
@@ -10,12 +10,15 @@ const TAX_BANDS = [
   { limit: Infinity, rate: 0.25 }
 ];
 
+// ================== COMMON TAX FUNCTION ==================
+
 function computeTax(amount) {
   let remaining = amount;
   let tax = 0;
 
   for (let band of TAX_BANDS) {
     if (remaining <= 0) break;
+
     let taxable = Math.min(band.limit, remaining);
     tax += taxable * band.rate;
     remaining -= taxable;
@@ -24,7 +27,7 @@ function computeTax(amount) {
   return tax;
 }
 
-// ================= PAYE CALCULATOR =================
+// ================== PAYE CALCULATOR ==================
 
 function calculatePAYE() {
   const monthlySalary = Number(
@@ -32,7 +35,7 @@ function calculatePAYE() {
   );
 
   if (!monthlySalary || monthlySalary <= 0) {
-    alert("Enter a valid monthly salary");
+    alert("Please enter a valid monthly salary");
     return;
   }
 
@@ -42,7 +45,7 @@ function calculatePAYE() {
     document.getElementById("payeResult").innerHTML = `
       <p><b>Annual Income:</b> ₦${annualIncome.toLocaleString()}</p>
       <p><b>Status:</b> <span style="color:green">EXEMPT</span></p>
-      <p>No PAYE payable under the new tax law.</p>
+      <p>No PAYE payable under the new tax reform.</p>
     `;
     return;
   }
@@ -60,7 +63,7 @@ function calculatePAYE() {
   `;
 }
 
-// ================= PIT CALCULATOR =================
+// ================== PIT CALCULATOR ==================
 
 function calculatePIT() {
   const incomeType = document.getElementById("incomeType").value;
@@ -71,12 +74,14 @@ function calculatePIT() {
     Number(document.getElementById("deductions").value) || 0;
 
   if (!incomeAmount || incomeAmount <= 0) {
-    alert("Enter a valid income amount");
+    alert("Please enter a valid income amount");
     return;
   }
 
   const annualIncome =
-    incomeType === "monthly" ? incomeAmount * 12 : incomeAmount;
+    incomeType === "monthly"
+      ? incomeAmount * 12
+      : incomeAmount;
 
   const taxableIncome = annualIncome - deductions;
 
