@@ -1,4 +1,4 @@
-// ================== CONSTANTS ==================
+// ================= COMMON TAX LOGIC =================
 
 const EXEMPT_LIMIT = 1200000;
 
@@ -9,8 +9,6 @@ const TAX_BANDS = [
   { limit: 25000000, rate: 0.23 },
   { limit: Infinity, rate: 0.25 }
 ];
-
-// ================== COMMON TAX FUNCTION ==================
 
 function computeTax(amount) {
   let remaining = amount;
@@ -27,7 +25,7 @@ function computeTax(amount) {
   return tax;
 }
 
-// ================== PAYE CALCULATOR ==================
+// ================= PAYE CALCULATOR =================
 
 function calculatePAYE() {
   const monthlySalary = Number(
@@ -35,7 +33,7 @@ function calculatePAYE() {
   );
 
   if (!monthlySalary || monthlySalary <= 0) {
-    alert("Please enter a valid monthly salary");
+    alert("Enter a valid monthly salary");
     return;
   }
 
@@ -43,9 +41,10 @@ function calculatePAYE() {
 
   if (annualIncome <= EXEMPT_LIMIT) {
     document.getElementById("payeResult").innerHTML = `
-      <p><b>Annual Income:</b> ₦${annualIncome.toLocaleString()}</p>
-      <p><b>Status:</b> <span style="color:green">EXEMPT</span></p>
-      <p>No PAYE payable under the new tax reform.</p>
+      <p><strong>Annual Income:</strong> ₦${annualIncome.toLocaleString()}</p>
+      <p><strong>Status:</strong> <span style="color:green;">EXEMPT</span></p>
+      <hr>
+      <p>No PAYE payable under the new tax law.</p>
     `;
     return;
   }
@@ -55,15 +54,15 @@ function calculatePAYE() {
   const monthlyTax = annualTax / 12;
 
   document.getElementById("payeResult").innerHTML = `
-    <p><b>Annual Income:</b> ₦${annualIncome.toLocaleString()}</p>
-    <p><b>Taxable Income:</b> ₦${taxableIncome.toLocaleString()}</p>
+    <p><strong>Annual Income:</strong> ₦${annualIncome.toLocaleString()}</p>
+    <p><strong>Taxable Income:</strong> ₦${taxableIncome.toLocaleString()}</p>
     <hr>
-    <p><b>Annual PAYE:</b> ₦${annualTax.toLocaleString()}</p>
-    <p><b>Monthly PAYE:</b> ₦${monthlyTax.toLocaleString()}</p>
+    <p><strong>Annual PAYE:</strong> ₦${annualTax.toLocaleString()}</p>
+    <p><strong>Monthly PAYE:</strong> ₦${monthlyTax.toLocaleString()}</p>
   `;
 }
 
-// ================== PIT CALCULATOR ==================
+// ================= PIT CALCULATOR =================
 
 function calculatePIT() {
   const incomeType = document.getElementById("incomeType").value;
@@ -74,7 +73,7 @@ function calculatePIT() {
     Number(document.getElementById("deductions").value) || 0;
 
   if (!incomeAmount || incomeAmount <= 0) {
-    alert("Please enter a valid income amount");
+    alert("Enter a valid income amount");
     return;
   }
 
@@ -87,8 +86,9 @@ function calculatePIT() {
 
   if (taxableIncome <= EXEMPT_LIMIT) {
     document.getElementById("pitResult").innerHTML = `
-      <p><b>Annual Income:</b> ₦${annualIncome.toLocaleString()}</p>
-      <p><b>Status:</b> <span style="color:green">EXEMPT</span></p>
+      <p><strong>Annual Income:</strong> ₦${annualIncome.toLocaleString()}</p>
+      <p><strong>Status:</strong> <span style="color:green;">EXEMPT</span></p>
+      <hr>
       <p>This income is fully exempt under the new tax reform.</p>
     `;
     return;
@@ -99,11 +99,11 @@ function calculatePIT() {
   const monthlyTax = annualTax / 12;
 
   document.getElementById("pitResult").innerHTML = `
-    <p><b>Annual Income:</b> ₦${annualIncome.toLocaleString()}</p>
-    <p><b>Deductions:</b> ₦${deductions.toLocaleString()}</p>
-    <p><b>Taxable Income:</b> ₦${taxableIncome.toLocaleString()}</p>
+    <p><strong>Annual Income:</strong> ₦${annualIncome.toLocaleString()}</p>
+    <p><strong>Deductions:</strong> ₦${deductions.toLocaleString()}</p>
+    <p><strong>Taxable Income:</strong> ₦${taxableIncome.toLocaleString()}</p>
     <hr>
-    <p><b>Annual PIT:</b> ₦${annualTax.toLocaleString()}</p>
-    <p><b>Monthly PIT:</b> ₦${monthlyTax.toLocaleString()}</p>
+    <p><strong>Annual PIT:</strong> ₦${annualTax.toLocaleString()}</p>
+    <p><strong>Monthly PIT:</strong> ₦${monthlyTax.toLocaleString()}</p>
   `;
 }
