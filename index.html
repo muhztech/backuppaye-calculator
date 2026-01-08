@@ -44,9 +44,7 @@ button{
   font-weight:600;
   cursor:pointer;
 }
-button.secondary{
-  background:#0f766e;
-}
+button.secondary{background:#0f766e;}
 button:hover{opacity:.9}
 .divider{text-align:center;margin:20px 0;color:#94a3b8;}
 .result{
@@ -84,16 +82,22 @@ button:hover{opacity:.9}
 
 <button onclick="manualCompare()">Compare PAYE</button>
 
-<div class="divider">— OR CAPTURE PAYSLIP —</div>
+<div class="divider">— OR USE PAYSLIP —</div>
 
-<label>Upload or Capture Payslip</label>
+<!-- FILE PICKER -->
+<label>Choose Payslip Image</label>
+<input type="file" id="fileInput" accept="image/*">
+
+<!-- CAMERA BUTTON -->
+<button class="secondary" onclick="openCamera()">📷 Capture from Camera</button>
+
+<!-- HIDDEN CAMERA INPUT -->
 <input 
   type="file" 
-  id="fileInput" 
+  id="cameraInput" 
   accept="image/*" 
-  capture="environment">
-
-<button class="secondary" onclick="openCamera()">📷 Capture from Camera</button>
+  capture="environment"
+  style="display:none">
 
 <div class="preview" id="preview"></div>
 
@@ -131,7 +135,7 @@ function computeNewPAYE(monthlyGross){
   return tax / 12;
 }
 
-/* ===== MANUAL COMPARE ===== */
+/* ===== MANUAL ===== */
 function manualCompare(){
   const gross = Number(manualSalary.value);
   const oldPAYE = Number(manualOldPAYE.value);
@@ -142,31 +146,37 @@ function manualCompare(){
   showComparison(gross, oldPAYE);
 }
 
-/* ===== CAMERA / UPLOAD ===== */
+/* ===== CAMERA ===== */
 function openCamera(){
-  fileInput.click();
+  cameraInput.click();
 }
 
-/* ===== PREVIEW ===== */
-fileInput.addEventListener("change", e=>{
-  const f = e.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
-  r.readAsDataURL(f);
+/* ===== PREVIEW & FILE STORE ===== */
+let selectedFile = null;
+
+[fileInput, cameraInput].forEach(input=>{
+  input.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+
+    selectedFile = f;
+
+    const r = new FileReader();
+    r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
+    r.readAsDataURL(f);
+  });
 });
 
 /* ===== OCR ===== */
 function processPayslip(){
-  const file = fileInput.files[0];
-  if(!file){
+  if(!selectedFile){
     alert("Upload or capture a payslip");
     return;
   }
 
   loading.innerText="Reading payslip… Please wait";
 
-  Tesseract.recognize(file,"eng")
+  Tesseract.recognize(selectedFile,"eng")
   .then(({data:{text}})=>{
     loading.innerText="";
 
