@@ -2,78 +2,115 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Nigeria PAYE Auto-Scan Tool</title>
+<title>Nigeria PAYE Comparison Tool</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
 body{
-  font-family:Inter,sans-serif;
-  background:#f1f5f9;
+  font-family:'Inter',sans-serif;
+  background:linear-gradient(135deg,#eef2f7,#f9fafb);
   min-height:100vh;
   display:flex;
-  justify-content:center;
   align-items:center;
+  justify-content:center;
+  padding:20px;
 }
 .card{
-  background:#fff;
-  max-width:600px;
+  max-width:540px;
   width:100%;
-  padding:24px;
+  background:#fff;
   border-radius:18px;
+  padding:26px;
   box-shadow:0 20px 40px rgba(0,0,0,.12);
 }
-button{
+h2{text-align:center;}
+.subtitle{text-align:center;color:#64748b;font-size:14px;margin-bottom:20px;}
+label{font-weight:600;font-size:14px;display:block;margin-top:12px;}
+input,button{
   width:100%;
   padding:12px;
-  margin-top:10px;
+  margin-top:6px;
+  font-size:15px;
   border-radius:10px;
+}
+input{border:1px solid #cbd5e1;}
+button{
   border:none;
   background:#2563eb;
   color:#fff;
   font-weight:600;
+  cursor:pointer;
 }
 button.secondary{background:#0f766e;}
-video, img{
-  width:100%;
-  border-radius:12px;
-  margin-top:10px;
-}
+button:hover{opacity:.9}
+.divider{text-align:center;margin:20px 0;color:#94a3b8;}
 .result{
+  margin-top:18px;
   background:#f1f5f9;
-  padding:14px;
-  margin-top:14px;
+  padding:16px;
   border-radius:12px;
+  font-size:14px;
+  line-height:1.7;
 }
-.hidden{display:none;}
 .good{color:#15803d;font-weight:600;}
 .bad{color:#b91c1c;font-weight:600;}
+.loading{text-align:center;color:#b45309;margin-top:10px;}
+.preview img{
+  max-width:100%;
+  margin-top:10px;
+  border-radius:10px;
+}
+.footer{text-align:center;font-size:12px;color:#94a3b8;margin-top:18px;}
 </style>
 </head>
 
 <body>
 
 <div class="card">
-<h2>🇳🇬 PAYE Auto-Scanner</h2>
-<p>Hands-free payslip scanning with auto-crop</p>
+<h2>🇳🇬 PAYE Comparison</h2>
+<p class="subtitle">Old PAYE vs New Nigerian Tax Reform</p>
 
-<button class="secondary" onclick="startAutoScan()">📷 Start Auto-Scan</button>
-<button onclick="stopCamera()">✖ Stop Camera</button>
+<!-- MANUAL ENTRY -->
+<label>Monthly Gross Salary (₦)</label>
+<input type="number" id="manualSalary" placeholder="e.g. 92508">
 
-<video id="video" autoplay playsinline class="hidden"></video>
-<img id="preview" class="hidden">
+<label>Current Monthly PAYE (₦)</label>
+<input type="number" id="manualOldPAYE" placeholder="e.g. 5053">
 
+<button onclick="manualCompare()">Compare PAYE</button>
+
+<div class="divider">— OR USE PAYSLIP —</div>
+
+<!-- FILE PICKER -->
+<label>Choose Payslip Image</label>
+<input type="file" id="fileInput" accept="image/*">
+
+<!-- CAMERA BUTTON -->
+<button class="secondary" onclick="openCamera()">📷 Capture from Camera</button>
+
+<!-- HIDDEN CAMERA INPUT -->
+<input 
+  type="file" 
+  id="cameraInput" 
+  accept="image/*" 
+  capture="environment"
+  style="display:none">
+
+<div class="preview" id="preview"></div>
+
+<button onclick="processPayslip()">Process Payslip</button>
+
+<p class="loading" id="loading"></p>
 <div class="result" id="result"></div>
+
+<div class="footer">© 2026 Muhztech PAYE Automation</div>
 </div>
 
-<canvas id="canvas" class="hidden"></canvas>
-
 <script>
-/* ================= TAX LOGIC ================= */
+/* ===== TAX LOGIC ===== */
 const EXEMPT = 800000;
 const BANDS = [
   {limit:2200000, rate:0.15},
@@ -82,132 +119,130 @@ const BANDS = [
   {limit:25000000, rate:0.23},
   {limit:Infinity, rate:0.25}
 ];
-function computeNewPAYE(m){
-  let a=m*12,t=0;
-  if(a>EXEMPT){
-    let r=a-EXEMPT;
+
+function computeNewPAYE(monthlyGross){
+  let annual = monthlyGross * 12;
+  let tax = 0;
+  if(annual > EXEMPT){
+    let rem = annual - EXEMPT;
     for(let b of BANDS){
-      let amt=Math.min(b.limit,r);
-      t+=amt*b.rate; r-=amt;
-      if(r<=0)break;
+      if(rem<=0) break;
+      let amt = Math.min(b.limit, rem);
+      tax += amt * b.rate;
+      rem -= amt;
     }
   }
-  return t/12;
+  return tax / 12;
 }
 
-/* ================= CAMERA ================= */
-let stream=null, scanInterval=null, scanned=false;
+/* ===== MANUAL ===== */
+function manualCompare(){
+  const gross = Number(manualSalary.value);
+  const oldPAYE = Number(manualOldPAYE.value);
+  if(gross<=0 || oldPAYE<0){
+    alert("Enter valid values");
+    return;
+  }
+  showComparison(gross, oldPAYE);
+}
 
-async function startAutoScan(){
-  if(!cv || !cv.imread){
-    alert("OpenCV still loading, try again");
+/* ===== CAMERA ===== */
+function openCamera(){
+  cameraInput.click();
+}
+
+/* ===== PREVIEW & FILE STORE ===== */
+let selectedFile = null;
+
+[fileInput, cameraInput].forEach(input=>{
+  input.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+
+    selectedFile = f;
+
+    const r = new FileReader();
+    r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
+    r.readAsDataURL(f);
+  });
+});
+
+/* ===== OCR ===== */
+function processPayslip(){
+  if(!selectedFile){
+    alert("Upload or capture a payslip");
     return;
   }
 
-  stream = await navigator.mediaDevices.getUserMedia({
-    video:{facingMode:"environment"}
-  });
-  video.srcObject = stream;
-  video.classList.remove("hidden");
+  loading.innerText="Reading payslip… Please wait";
 
-  scanned=false;
-  scanInterval=setInterval(captureAndScan,2000);
-}
+  Tesseract.recognize(selectedFile,"eng")
+  .then(({data:{text}})=>{
+    loading.innerText="";
 
-function stopCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  clearInterval(scanInterval);
-  video.classList.add("hidden");
-}
+    const t = text
+      .toUpperCase()
+      .replace(/₦|,/g,"")
+      .replace(/\s+/g," ");
 
-/* ================= AUTO-CROP ================= */
-function autoCrop(){
-  const c=document.getElementById("canvas");
-  c.width=video.videoWidth;
-  c.height=video.videoHeight;
-  c.getContext("2d").drawImage(video,0,0);
+    const gross =
+      extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) ||
+      sumParts(t);
 
-  let src=cv.imread(c);
-  let gray=new cv.Mat();
-  let blur=new cv.Mat();
-  let edge=new cv.Mat();
+    const oldPAYE =
+      extract(t,["PAYE","PAY AS YOU EARN","TAX"]) || 0;
 
-  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
-  cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);
-  cv.Canny(blur,edge,75,200);
-
-  let contours=new cv.MatVector();
-  let hierarchy=new cv.Mat();
-  cv.findContours(edge,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
-
-  let maxArea=0, bestRect=null;
-  for(let i=0;i<contours.size();i++){
-    let cnt=contours.get(i);
-    let peri=cv.arcLength(cnt,true);
-    let approx=new cv.Mat();
-    cv.approxPolyDP(cnt,approx,0.02*peri,true);
-    if(approx.rows===4){
-      let r=cv.boundingRect(approx);
-      let area=r.width*r.height;
-      if(area>maxArea){maxArea=area; bestRect=r;}
+    if(!gross){
+      alert("Could not detect Gross Pay. Use manual entry.");
+      return;
     }
-  }
 
-  let cropped=src;
-  if(bestRect){
-    cropped=src.roi(bestRect);
-  }
-
-  cv.imshow("canvas",cropped);
-
-  src.delete();gray.delete();blur.delete();edge.delete();
-  contours.delete();hierarchy.delete();
-
-  return new Promise(res=>c.toBlob(res));
-}
-
-/* ================= OCR LOOP ================= */
-async function captureAndScan(){
-  if(scanned) return;
-
-  const blob=await autoCrop();
-  preview.src=URL.createObjectURL(blob);
-  preview.classList.remove("hidden");
-
-  Tesseract.recognize(blob,"eng").then(({data:{text}})=>{
-    const t=text.toUpperCase().replace(/₦|,/g,"");
-    const gross=extract(t,["GROSS PAY","TOTAL PAY","GROSS"]);
-    const oldPAYE=extract(t,["PAYE","TAX"])||0;
-
-    if(gross){
-      scanned=true;
-      stopCamera();
-      showResult(gross,oldPAYE);
-    }
+    showComparison(gross, oldPAYE);
+  })
+  .catch(()=>{
+    loading.innerText="";
+    alert("OCR failed. Try clearer image.");
   });
 }
 
-/* ================= DISPLAY ================= */
-function showResult(gross,old){
-  const n=computeNewPAYE(gross);
-  const d=old-n;
-  result.innerHTML=`
-    <b>Gross:</b> ₦${gross.toLocaleString()}<br>
-    <b>Old PAYE:</b> ₦${old.toLocaleString()}<br>
-    <b>New PAYE:</b> ₦${n.toLocaleString()}<hr>
-    ${d>0?`<span class="good">Overpaid ₦${d.toLocaleString()}</span>`:
-      d<0?`<span class="bad">Underpaid ₦${Math.abs(d).toLocaleString()}</span>`:
-      `<span class="good">Correct</span>`}
+/* ===== DISPLAY ===== */
+function showComparison(gross, oldPAYE){
+  const newPAYE = computeNewPAYE(gross);
+  const diff = oldPAYE - newPAYE;
+
+  const status =
+    diff > 0
+      ? `<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
+      : diff < 0
+        ? `<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
+        : `<span class="good">Correctly Taxed</span>`;
+
+  result.innerHTML = `
+    <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
+    <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
+    <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
+    <b>Status:</b> ${status}
   `;
 }
 
-/* ================= HELPERS ================= */
-function extract(t,keys){
+/* ===== HELPERS ===== */
+function extract(text, keys){
   for(let k of keys){
-    let m=t.match(new RegExp(k+"[^0-9]{0,15}([0-9]{4,9})"));
+    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})");
+    let m = text.match(r);
     if(m) return Number(m[1]);
   }
   return null;
+}
+
+function sumParts(text){
+  let sum = 0;
+  ["BASIC","HOUSING","TRANSPORT","ALLOWANCE","RENT"].forEach(k=>{
+    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
+    let m;
+    while((m=r.exec(text))!==null) sum+=Number(m[1]);
+  });
+  return sum>0 ? sum : null;
 }
 </script>
 
