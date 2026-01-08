@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Nigeria PAYE & PIT Calculator</title>
+  <title>Nigeria PAYE & PIT Calculator (New Tax Reform)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
@@ -10,64 +11,78 @@
       background: #f4f6f8;
       padding: 20px;
     }
-    .card {
-      background: #fff;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      max-width: 500px;
+    .container {
+      max-width: 650px;
+      margin: auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     h2 {
-      margin-top: 0;
-      color: #333;
+      text-align: center;
+      color: #0b5394;
     }
     label {
       font-weight: bold;
+      margin-top: 12px;
+      display: block;
     }
     input, select, button {
       width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      margin-bottom: 10px;
-      font-size: 14px;
+      padding: 10px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      font-size: 16px;
     }
     button {
-      background: #0a7cff;
-      color: white;
+      background: #0b5394;
+      color: #fff;
       border: none;
       cursor: pointer;
       border-radius: 4px;
     }
     button:hover {
-      background: #055ec4;
+      background: #073763;
     }
     .result {
+      background: #eef3f7;
+      padding: 15px;
+      border-radius: 5px;
       margin-top: 10px;
-      background: #f9fafb;
-      padding: 10px;
-      border-radius: 4px;
+    }
+    hr {
+      margin: 15px 0;
+    }
+    footer {
+      text-align: center;
+      font-size: 13px;
+      color: #777;
+      margin-top: 20px;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- PAYE SECTION -->
-  <div class="card">
-    <h2>PAYE Calculator</h2>
+  <div class="container">
 
-    <label for="monthlySalary">Monthly Salary (₦)</label>
-    <input type="number" id="monthlySalary" placeholder="e.g. 150000">
+    <h2>🇳🇬 Nigeria PAYE & PIT Calculator<br>(New Tax Reform)</h2>
+
+    <!-- ================= PAYE ================= -->
+    <h3>PAYE Calculator</h3>
+
+    <label for="monthlySalary">Monthly Gross Salary (₦)</label>
+    <input type="number" id="monthlySalary" placeholder="e.g. 92508">
 
     <button onclick="calculatePAYE()">Calculate PAYE</button>
 
     <div id="payeResult" class="result"></div>
-  </div>
 
-  <!-- PIT SECTION -->
-  <div class="card">
-    <h2>PIT Calculator</h2>
+    <hr>
+
+    <!-- ================= PIT ================= -->
+    <h3>Personal Income Tax (PIT)</h3>
 
     <label for="incomeType">Income Type</label>
     <select id="incomeType">
@@ -76,17 +91,23 @@
     </select>
 
     <label for="incomeAmount">Income Amount (₦)</label>
-    <input type="number" id="incomeAmount" placeholder="e.g. 250000">
+    <input type="number" id="incomeAmount" placeholder="Enter income">
 
-    <label for="deductions">Deductions (₦)</label>
-    <input type="number" id="deductions" value="0">
+    <label for="deductions">Allowable Deductions (₦)</label>
+    <input type="number" id="deductions" placeholder="e.g. pension, NHF">
 
     <button onclick="calculatePIT()">Calculate PIT</button>
 
     <div id="pitResult" class="result"></div>
+
   </div>
 
-  <!-- LINK TO JS -->
+  <footer>
+    © 2026 Nigeria Tax Reform Calculator
+  </footer>
+
+  <!-- IMPORTANT: SCRIPT MUST LOAD LAST -->
   <script src="script.js"></script>
+
 </body>
 </html>
