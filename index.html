@@ -97,8 +97,8 @@ button:hover{opacity:.9}
 
 <!-- TABS -->
 <div class="tabs">
-  <div class="tab active" onclick="openTab('compare')">PAYE Comparison</div>
-  <div class="tab" onclick="openTab('pit')">New PIT Calculator</div>
+  <div class="tab active" onclick="openTab('compare', this)">PAYE Comparison</div>
+  <div class="tab" onclick="openTab('pit', this)">New PIT Calculator</div>
 </div>
 
 <!-- ================= TAB 1: PAYE COMPARISON ================= -->
@@ -129,11 +129,14 @@ button:hover{opacity:.9}
 
 </div>
 
-<!-- ================= TAB 2: NEW PIT CALCULATOR ================= -->
+<!-- ================= TAB 2: PIT WITH EXPENSES ================= -->
 <div id="pit" class="tab-content">
 
 <label>Monthly Gross Income (₦)</label>
-<input type="number" id="pitSalary" placeholder="e.g. 250000">
+<input type="number" id="pitGross" placeholder="e.g. 300000">
+
+<label>Monthly Allowable Expenses (₦)</label>
+<input type="number" id="pitExpenses" placeholder="e.g. 80000">
 
 <button onclick="calculatePIT()">Calculate New PIT</button>
 
@@ -146,10 +149,10 @@ button:hover{opacity:.9}
 
 <script>
 /* ===== TAB SWITCH ===== */
-function openTab(id){
+function openTab(id, el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  event.target.classList.add('active');
+  el.classList.add('active');
   document.getElementById(id).classList.add('active');
 }
 
@@ -163,13 +166,13 @@ const BANDS = [
   {limit:Infinity, rate:0.25}
 ];
 
-/* ===== CORE PIT FUNCTION ===== */
+/* ===== CORE TAX FUNCTIONS ===== */
 function annualTax(annual){
   let tax = 0;
   if(annual > EXEMPT){
     let rem = annual - EXEMPT;
     for(let b of BANDS){
-      if(rem<=0) break;
+      if(rem <= 0) break;
       let amt = Math.min(b.limit, rem);
       tax += amt * b.rate;
       rem -= amt;
@@ -179,98 +182,105 @@ function annualTax(annual){
 }
 
 function computeNewPAYE(monthly){
-  return annualTax(monthly*12)/12;
+  return annualTax(monthly * 12) / 12;
 }
 
 /* ===== PAYE COMPARISON ===== */
 function manualCompare(){
   const gross = Number(manualSalary.value);
   const oldPAYE = Number(manualOldPAYE.value);
-  if(gross<=0){alert("Enter valid salary");return;}
+  if(gross <= 0){ alert("Enter valid salary"); return; }
   showComparison(gross, oldPAYE);
 }
 
 /* ===== CAMERA / FILE ===== */
-let selectedFile=null;
-function openCamera(){cameraInput.click();}
+let selectedFile = null;
+function openCamera(){ cameraInput.click(); }
 
-[fileInput,cameraInput].forEach(i=>{
-  i.addEventListener("change",e=>{
-    const f=e.target.files[0];
-    if(!f)return;
-    selectedFile=f;
-    const r=new FileReader();
-    r.onload=ev=>preview.innerHTML=`<img src="${ev.target.result}">`;
+[fileInput, cameraInput].forEach(i=>{
+  i.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    selectedFile = f;
+    const r = new FileReader();
+    r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
     r.readAsDataURL(f);
   });
 });
 
 /* ===== OCR ===== */
 function processPayslip(){
-  if(!selectedFile){alert("Upload payslip");return;}
+  if(!selectedFile){ alert("Upload payslip"); return; }
   loading.innerText="Reading payslip…";
 
   Tesseract.recognize(selectedFile,"eng")
   .then(({data:{text}})=>{
     loading.innerText="";
-    const t=text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
-    const gross=extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"])||sumParts(t);
-    const oldPAYE=extract(t,["PAYE","PAY AS YOU EARN","TAX"])||0;
-    if(!gross){alert("Gross not detected");return;}
-    showComparison(gross,oldPAYE);
+    const t = text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
+    const gross = extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) || sumParts(t);
+    const oldPAYE = extract(t,["PAYE","PAY AS YOU EARN","TAX"]) || 0;
+    if(!gross){ alert("Gross not detected"); return; }
+    showComparison(gross, oldPAYE);
   });
 }
 
 /* ===== DISPLAY PAYE ===== */
 function showComparison(gross, oldPAYE){
-  const newPAYE=computeNewPAYE(gross);
-  const diff=oldPAYE-newPAYE;
-  const status=diff>0
-    ?`<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
-    :diff<0
-      ?`<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
-      :`<span class="good">Correctly Taxed</span>`;
+  const newPAYE = computeNewPAYE(gross);
+  const diff = oldPAYE - newPAYE;
+  const status = diff > 0
+    ? `<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
+    : diff < 0
+      ? `<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
+      : `<span class="good">Correctly Taxed</span>`;
 
-  result.innerHTML=`
-  <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
-  <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
-  <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
-  <b>Status:</b> ${status}`;
+  result.innerHTML = `
+    <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
+    <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
+    <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
+    <b>Status:</b> ${status}
+  `;
 }
 
-/* ===== PIT ONLY TAB ===== */
+/* ===== PIT WITH EXPENSES ===== */
 function calculatePIT(){
-  const m=Number(pitSalary.value);
-  if(m<=0){alert("Enter salary");return;}
-  const annual=m*12;
-  const tax=annualTax(annual);
+  const gross = Number(pitGross.value);
+  const expenses = Number(pitExpenses.value);
 
-  pitResult.innerHTML=`
-  <b>Annual Gross:</b> ₦${annual.toLocaleString()}<br>
-  <b>Tax-Free Allowance:</b> ₦${EXEMPT.toLocaleString()}<br>
-  <b>Annual PIT:</b> ₦${tax.toLocaleString()}<br>
-  <b>Monthly PIT:</b> ₦${(tax/12).toLocaleString()}
+  if(gross <= 0){ alert("Enter gross income"); return; }
+  if(expenses < 0){ alert("Invalid expenses"); return; }
+
+  const netMonthly = Math.max(gross - expenses, 0);
+  const annualNet = netMonthly * 12;
+  const tax = annualTax(annualNet);
+
+  pitResult.innerHTML = `
+    <b>Net Monthly Income:</b> ₦${netMonthly.toLocaleString()}<br>
+    <b>Annual Net Income:</b> ₦${annualNet.toLocaleString()}<br>
+    <b>Tax-Free Allowance:</b> ₦${EXEMPT.toLocaleString()}<br>
+    <b>Annual PIT:</b> ₦${tax.toLocaleString()}<br>
+    <b>Monthly PIT:</b> ₦${(tax/12).toLocaleString()}
   `;
 }
 
 /* ===== HELPERS ===== */
 function extract(text, keys){
   for(let k of keys){
-    let r=new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})");
-    let m=text.match(r);
-    if(m)return Number(m[1]);
+    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})");
+    let m = text.match(r);
+    if(m) return Number(m[1]);
   }
   return null;
 }
 
 function sumParts(text){
-  let sum=0;
+  let sum = 0;
   ["BASIC","HOUSING","TRANSPORT","ALLOWANCE","RENT"].forEach(k=>{
-    let r=new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
+    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
     let m;
-    while((m=r.exec(text))!==null)sum+=Number(m[1]);
+    while((m = r.exec(text)) !== null) sum += Number(m[1]);
   });
-  return sum>0?sum:null;
+  return sum > 0 ? sum : null;
 }
 </script>
 
