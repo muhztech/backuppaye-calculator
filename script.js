@@ -1,112 +1,186 @@
-// ================= COMMON TAX LOGIC =================
+<script>
+  let selectedFile = null;
+  const previewContainer = document.getElementById('previewContainer');
 
-const EXEMPT_LIMIT = 1200000;
-
-const TAX_BANDS = [
-  { limit: 2200000, rate: 0.15 },
-  { limit: 9000000, rate: 0.18 },
-  { limit: 13000000, rate: 0.21 },
-  { limit: 25000000, rate: 0.23 },
-  { limit: Infinity, rate: 0.25 }
-];
-
-function computeTax(amount) {
-  let remaining = amount;
-  let tax = 0;
-
-  for (let band of TAX_BANDS) {
-    if (remaining <= 0) break;
-    let taxable = Math.min(band.limit, remaining);
-    tax += taxable * band.rate;
-    remaining -= taxable;
-  }
-  return tax;
-}
-
-// ================= PAYE =================
-
-function calculatePAYE() {
-  const monthlySalaryEl = document.getElementById("monthlySalary");
-  const resultEl = document.getElementById("payeResult");
-
-  if (!monthlySalaryEl || !resultEl) {
-    alert("PAYE elements not found in HTML");
-    return;
+  function showPreview(file){
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewContainer.innerHTML =
+        `<img src="${e.target.result}" alt="Payslip Preview">`;
+    };
+    reader.readAsDataURL(file);
   }
 
-  const monthlySalary = Number(monthlySalaryEl.value);
+  document.getElementById('cameraInput').addEventListener('change', e => {
+    if(e.target.files.length){
+      selectedFile = e.target.files[0];
+      showPreview(selectedFile);
+    }
+  });
 
-  if (monthlySalary <= 0) {
-    alert("Enter a valid monthly salary");
-    return;
+  document.getElementById('galleryInput').addEventListener('change', e => {
+    if(e.target.files.length){
+      selectedFile = e.target.files[0];
+      showPreview(selectedFile);
+    }
+  });
+
+  function processSelectedFile(){
+    if(!selectedFile){
+      alert("Please take a photo or upload a payslip first!");
+      return;
+    }
+    processPayslip(selectedFile);
   }
 
-  const annualIncome = monthlySalary * 12;
+  // ================= OCR PROCESS =================
 
-  if (annualIncome <= EXEMPT_LIMIT) {
-    resultEl.innerHTML =
-      "<p><b>Annual Income:</b> ₦" + annualIncome.toLocaleString() + "</p>" +
-      "<p><b>Status:</b> <span style='color:green'>EXEMPT</span></p>" +
-      "<p>No PAYE payable under the new tax law.</p>";
-    return;
+  function processPayslip(file){
+    document.getElementById("loading").innerText =
+      "Reading payslip… please wait";
+
+    Tesseract.recognize(file, 'eng', {
+      logger: m => console.log(m)
+    })
+    .then(({ data: { text } }) => {
+      document.getElementById("loading").innerText = "";
+      const cleanText = normalizeText(text);
+      console.log("OCR TEXT:", cleanText);
+
+      let gross =
+        extractAmount(cleanText, GROSS_KEYWORDS) ||
+        sumComponents(cleanText);
+
+      let pension = extractAmount(cleanText, PENSION_KEYWORDS) || 0;
+      let currentPAYE =
+        extractAmount(cleanText, PAYE_KEYWORDS) || 0;
+
+      if(!gross){
+        alert(
+          "Could not confidently detect Gross Pay.\n" +
+          "Tip: ensure payslip is clear and well-lit."
+        );
+        return;
+      }
+
+      calculateNewPAYE(gross, pension, currentPAYE);
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error reading payslip");
+    });
   }
 
-  const taxableIncome = annualIncome - EXEMPT_LIMIT;
-  const annualTax = computeTax(taxableIncome);
-  const monthlyTax = annualTax / 12;
+  // ================= TEXT NORMALIZATION =================
 
-  resultEl.innerHTML =
-    "<p><b>Annual Income:</b> ₦" + annualIncome.toLocaleString() + "</p>" +
-    "<p><b>Taxable Income:</b> ₦" + taxableIncome.toLocaleString() + "</p>" +
-    "<hr>" +
-    "<p><b>Annual PAYE:</b> ₦" + annualTax.toLocaleString() + "</p>" +
-    "<p><b>Monthly PAYE:</b> ₦" + monthlyTax.toLocaleString() + "</p>";
-}
-
-// ================= PIT =================
-
-function calculatePIT() {
-  const incomeTypeEl = document.getElementById("incomeType");
-  const incomeAmountEl = document.getElementById("incomeAmount");
-  const deductionsEl = document.getElementById("deductions");
-  const resultEl = document.getElementById("pitResult");
-
-  if (!incomeTypeEl || !incomeAmountEl || !resultEl) {
-    alert("PIT elements not found in HTML");
-    return;
+  function normalizeText(text){
+    return text
+      .toUpperCase()
+      .replace(/₦/g,"")
+      .replace(/\s+/g," ")
+      .replace(/,/g,"");
   }
 
-  const incomeType = incomeTypeEl.value;
-  const incomeAmount = Number(incomeAmountEl.value);
-  const deductions = Number(deductionsEl.value) || 0;
+  // ================= KEYWORDS =================
 
-  if (incomeAmount <= 0) {
-    alert("Enter a valid income amount");
-    return;
+  const GROSS_KEYWORDS = [
+    "GROSS PAY",
+    "GROSS SALARY",
+    "TOTAL EMOLUMENT",
+    "TOTAL PAY",
+    "TOTAL EARNINGS",
+    "GROSS"
+  ];
+
+  const PENSION_KEYWORDS = [
+    "PENSION",
+    "PFA",
+    "RETIREMENT"
+  ];
+
+  const PAYE_KEYWORDS = [
+    "PAYE",
+    "PAY AS YOU EARN",
+    "TAX"
+  ];
+
+  // ================= AMOUNT EXTRACTION =================
+
+  function extractAmount(text, keywords){
+    for(let key of keywords){
+      const regex = new RegExp(
+        key + "[^0-9]{0,20}([0-9]{2,9}(?:\\.\\d{2})?)"
+      );
+      const match = text.match(regex);
+      if(match){
+        return Number(match[1]);
+      }
+    }
+    return null;
   }
 
-  const annualIncome =
-    incomeType === "monthly" ? incomeAmount * 12 : incomeAmount;
+  // ================= FALLBACK: SUM BASIC + ALLOWANCES =================
 
-  const taxableIncome = annualIncome - deductions;
+  function sumComponents(text){
+    let total = 0;
+    const components = [
+      "BASIC",
+      "HOUSING",
+      "RENT",
+      "TRANSPORT",
+      "MEAL",
+      "UTILITY",
+      "ALLOWANCE"
+    ];
 
-  if (taxableIncome <= EXEMPT_LIMIT) {
-    resultEl.innerHTML =
-      "<p><b>Annual Income:</b> ₦" + annualIncome.toLocaleString() + "</p>" +
-      "<p><b>Status:</b> <span style='color:green'>EXEMPT</span></p>" +
-      "<p>This income is fully exempt under the new tax reform.</p>";
-    return;
+    for(let comp of components){
+      const regex =
+        new RegExp(comp + "[^0-9]{0,20}([0-9]{2,9})","g");
+      let match;
+      while((match = regex.exec(text)) !== null){
+        total += Number(match[1]);
+      }
+    }
+    return total > 0 ? total : null;
   }
 
-  const excess = taxableIncome - EXEMPT_LIMIT;
-  const annualTax = computeTax(excess);
-  const monthlyTax = annualTax / 12;
+  // ================= PAYE CALCULATION =================
 
-  resultEl.innerHTML =
-    "<p><b>Annual Income:</b> ₦" + annualIncome.toLocaleString() + "</p>" +
-    "<p><b>Deductions:</b> ₦" + deductions.toLocaleString() + "</p>" +
-    "<p><b>Taxable Income:</b> ₦" + taxableIncome.toLocaleString() + "</p>" +
-    "<hr>" +
-    "<p><b>Annual PIT:</b> ₦" + annualTax.toLocaleString() + "</p>" +
-    "<p><b>Monthly PIT:</b> ₦" + monthlyTax.toLocaleString() + "</p>";
-}
+  function calculateNewPAYE(monthlyGross, pensionMonthly, currentPAYE){
+    const annualIncome = monthlyGross * 12;
+    const pensionAnnual = pensionMonthly * 12;
+    const taxableIncome = annualIncome - pensionAnnual;
+
+    let tax = 0;
+
+    if(taxableIncome > 800000){
+      let remaining = taxableIncome - 800000;
+      const bands = [
+        { limit: 2200000, rate: 0.15 },
+        { limit: 9000000, rate: 0.18 },
+        { limit: 13000000, rate: 0.21 },
+        { limit: 25000000, rate: 0.23 },
+        { limit: Infinity, rate: 0.25 }
+      ];
+
+      for(let band of bands){
+        if(remaining <= 0) break;
+        let amount = Math.min(band.limit, remaining);
+        tax += amount * band.rate;
+        remaining -= amount;
+      }
+    }
+
+    const monthlyNewPAYE = tax / 12;
+    const difference = currentPAYE - monthlyNewPAYE;
+
+    document.getElementById("result").innerHTML = `
+      <p><b>Detected Gross Pay:</b> ₦${monthlyGross.toLocaleString()}</p>
+      <p><b>Detected Pension:</b> ₦${pensionMonthly.toLocaleString()}</p>
+      <p><b>Current PAYE:</b> ₦${currentPAYE.toLocaleString()}</p>
+      <hr>
+      <p><b>Correct PAYE (New Law):</b> ₦${monthlyNewPAYE.toLocaleString()}</p>
+      <p><b>Difference:</b> ₦${difference.toLocaleString()}</p>
+    `;
+  }
+</script>
