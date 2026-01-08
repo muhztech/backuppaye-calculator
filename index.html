@@ -2,13 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Nigeria PAYE Calculator (New Tax Reform)</title>
+<title>Nigeria PAYE Comparison Tool</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- OCR -->
 <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-
-<!-- Font -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -22,15 +19,15 @@ body{
   padding:20px;
 }
 .card{
-  max-width:520px;
+  max-width:540px;
   width:100%;
   background:#fff;
   border-radius:18px;
   padding:26px;
   box-shadow:0 20px 40px rgba(0,0,0,.12);
 }
-h2{text-align:center;margin-bottom:6px;}
-p.subtitle{text-align:center;color:#64748b;font-size:14px;margin-bottom:20px;}
+h2{text-align:center;}
+.subtitle{text-align:center;color:#64748b;font-size:14px;margin-bottom:20px;}
 label{font-weight:600;font-size:14px;display:block;margin-top:12px;}
 input,button{
   width:100%;
@@ -48,26 +45,19 @@ button{
   cursor:pointer;
 }
 button:hover{background:#1e40af;}
-.divider{
-  text-align:center;
-  margin:20px 0;
-  color:#94a3b8;
-  font-size:13px;
-}
+.divider{text-align:center;margin:20px 0;color:#94a3b8;}
 .result{
   margin-top:18px;
   background:#f1f5f9;
   padding:16px;
   border-radius:12px;
   font-size:14px;
-  line-height:1.6;
+  line-height:1.7;
 }
+.good{color:#15803d;font-weight:600;}
+.bad{color:#b91c1c;font-weight:600;}
 .loading{text-align:center;color:#b45309;margin-top:10px;}
-.preview img{
-  max-width:100%;
-  margin-top:10px;
-  border-radius:10px;
-}
+.preview img{max-width:100%;margin-top:10px;border-radius:10px;}
 .footer{text-align:center;font-size:12px;color:#94a3b8;margin-top:18px;}
 </style>
 </head>
@@ -75,18 +65,21 @@ button:hover{background:#1e40af;}
 <body>
 
 <div class="card">
-<h2>🇳🇬 PAYE Calculator</h2>
-<p class="subtitle">New Nigerian Tax Reform • Manual or Payslip Upload</p>
+<h2>🇳🇬 PAYE Comparison</h2>
+<p class="subtitle">Old PAYE vs New Nigerian Tax Reform</p>
 
-<!-- ================= MANUAL PAYE ================= -->
+<!-- MANUAL -->
 <label>Monthly Gross Salary (₦)</label>
 <input type="number" id="manualSalary" placeholder="e.g. 92508">
-<button onclick="calculateManualPAYE()">Calculate PAYE</button>
+
+<label>Current Monthly PAYE (₦)</label>
+<input type="number" id="manualOldPAYE" placeholder="e.g. 5053">
+
+<button onclick="manualCompare()">Compare PAYE</button>
 
 <div class="divider">— OR UPLOAD PAYSLIP —</div>
 
-<!-- ================= UPLOAD ================= -->
-<label>Upload Payslip (JPG / PNG)</label>
+<label>Upload Payslip (Image)</label>
 <input type="file" id="fileInput" accept="image/*">
 <div class="preview" id="preview"></div>
 
@@ -99,7 +92,7 @@ button:hover{background:#1e40af;}
 </div>
 
 <script>
-/* ================= TAX LOGIC ================= */
+/* ===== TAX LOGIC ===== */
 const EXEMPT = 800000;
 const BANDS = [
   {limit:2200000, rate:0.15},
@@ -109,34 +102,34 @@ const BANDS = [
   {limit:Infinity, rate:0.25}
 ];
 
-function computePAYE(monthlyGross){
+function computeNewPAYE(monthlyGross){
   let annual = monthlyGross * 12;
   let tax = 0;
   if(annual > EXEMPT){
-    let remaining = annual - EXEMPT;
+    let rem = annual - EXEMPT;
     for(let b of BANDS){
-      if(remaining<=0) break;
-      let amt = Math.min(b.limit, remaining);
+      if(rem<=0) break;
+      let amt = Math.min(b.limit, rem);
       tax += amt * b.rate;
-      remaining -= amt;
+      rem -= amt;
     }
   }
   return tax / 12;
 }
 
-/* ================= MANUAL ================= */
-function calculateManualPAYE(){
-  const val = Number(document.getElementById("manualSalary").value);
-  if(val<=0){alert("Enter valid salary");return;}
-  const paye = computePAYE(val);
-  document.getElementById("result").innerHTML =
-    `<b>Monthly Gross:</b> ₦${val.toLocaleString()}<br>
-     <b>Correct PAYE:</b> ₦${paye.toLocaleString()}`;
+/* ===== MANUAL COMPARE ===== */
+function manualCompare(){
+  const gross = Number(manualSalary.value);
+  const oldPAYE = Number(manualOldPAYE.value);
+  if(gross<=0 || oldPAYE<0){
+    alert("Enter valid values");
+    return;
+  }
+  showComparison(gross, oldPAYE);
 }
 
-/* ================= PREVIEW ================= */
-const preview = document.getElementById("preview");
-document.getElementById("fileInput").addEventListener("change", e=>{
+/* ===== PREVIEW ===== */
+fileInput.addEventListener("change", e=>{
   const f = e.target.files[0];
   if(!f) return;
   const r = new FileReader();
@@ -144,34 +137,53 @@ document.getElementById("fileInput").addEventListener("change", e=>{
   r.readAsDataURL(f);
 });
 
-/* ================= OCR ================= */
+/* ===== OCR ===== */
 function processPayslip(){
-  const file = document.getElementById("fileInput").files[0];
+  const file = fileInput.files[0];
   if(!file){alert("Upload a payslip");return;}
-  document.getElementById("loading").innerText="Reading payslip…";
+  loading.innerText="Reading payslip…";
 
   Tesseract.recognize(file,"eng")
   .then(({data:{text}})=>{
-    document.getElementById("loading").innerText="";
-    const clean = text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
+    loading.innerText="";
+    const t = text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
 
-    let gross =
-      extract(clean,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) ||
-      sumParts(clean);
+    const gross =
+      extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) ||
+      sumParts(t);
+
+    const oldPAYE =
+      extract(t,["PAYE","PAY AS YOU EARN","TAX"]) || 0;
 
     if(!gross){
-      alert("OCR failed. Please enter salary manually.");
+      alert("Could not detect Gross Pay. Use manual entry.");
       return;
     }
 
-    const newPAYE = computePAYE(gross);
-    document.getElementById("result").innerHTML =
-      `<b>Detected Gross:</b> ₦${gross.toLocaleString()}<br>
-       <b>Correct PAYE (New Law):</b> ₦${newPAYE.toLocaleString()}`;
+    showComparison(gross, oldPAYE);
   });
 }
 
-/* ================= HELPERS ================= */
+/* ===== DISPLAY ===== */
+function showComparison(gross, oldPAYE){
+  const newPAYE = computeNewPAYE(gross);
+  const diff = oldPAYE - newPAYE;
+  const status =
+    diff > 0
+      ? `<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
+      : diff < 0
+        ? `<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
+        : `<span class="good">Correctly Taxed</span>`;
+
+  result.innerHTML = `
+    <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
+    <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
+    <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
+    <b>Status:</b> ${status}
+  `;
+}
+
+/* ===== HELPERS ===== */
 function extract(text, keys){
   for(let k of keys){
     let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})");
