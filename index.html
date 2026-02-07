@@ -1,288 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Nigeria PAYE & PIT Tool</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>Nigeria PAYE Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Tesseract OCR -->
+  <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
 
-<style>
-body{
-  font-family:'Inter',sans-serif;
-  background:linear-gradient(135deg,#eef2f7,#f9fafb);
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-}
-.card{
-  max-width:560px;
-  width:100%;
-  background:#fff;
-  border-radius:18px;
-  padding:26px;
-  box-shadow:0 20px 40px rgba(0,0,0,.12);
-}
-h2{text-align:center;}
-.subtitle{text-align:center;color:#64748b;font-size:14px;margin-bottom:20px;}
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-.tabs{
-  display:flex;
-  gap:8px;
-  margin-bottom:20px;
-}
-.tab{
-  flex:1;
-  padding:10px;
-  border-radius:10px;
-  text-align:center;
-  font-weight:600;
-  cursor:pointer;
-  background:#e5e7eb;
-}
-.tab.active{
-  background:#2563eb;
-  color:#fff;
-}
-
-.tab-content{display:none;}
-.tab-content.active{display:block;}
-
-label{font-weight:600;font-size:14px;display:block;margin-top:12px;}
-input,button{
-  width:100%;
-  padding:12px;
-  margin-top:6px;
-  font-size:15px;
-  border-radius:10px;
-}
-input{border:1px solid #cbd5e1;}
-button{
-  border:none;
-  background:#2563eb;
-  color:#fff;
-  font-weight:600;
-  cursor:pointer;
-}
-button.secondary{background:#0f766e;}
-button:hover{opacity:.9}
-
-.divider{text-align:center;margin:20px 0;color:#94a3b8;}
-
-.result{
-  margin-top:18px;
-  background:#f1f5f9;
-  padding:16px;
-  border-radius:12px;
-  font-size:14px;
-  line-height:1.7;
-}
-.good{color:#15803d;font-weight:600;}
-.bad{color:#b91c1c;font-weight:600;}
-
-.loading{text-align:center;color:#b45309;margin-top:10px;}
-.preview img{max-width:100%;margin-top:10px;border-radius:10px;}
-.footer{text-align:center;font-size:12px;color:#94a3b8;margin-top:18px;}
-</style>
+  <style>
+    *{box-sizing:border-box;}
+    body{
+      font-family:'Inter',sans-serif;
+      background:
+        radial-gradient(circle at top left, #e0eaff, transparent 60%),
+        radial-gradient(circle at bottom right, #fef3c7, transparent 55%),
+        linear-gradient(135deg, #eef2f7, #f9fafb);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .card{
+      width:100%;
+      max-width:480px;
+      background:rgba(255,255,255,0.92);
+      backdrop-filter:blur(12px);
+      border-radius:18px;
+      padding:30px;
+      box-shadow:0 20px 45px rgba(15,23,42,0.12);
+    }
+    .header{text-align:center;margin-bottom:26px;}
+    .badge{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      background:#e0ecff;
+      color:#1d4ed8;
+      font-size:12px;
+      font-weight:600;
+      margin-bottom:10px;
+    }
+    .header h2{font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px;}
+    .header p{font-size:14px;color:#64748b;}
+    label{font-size:14px;font-weight:600;color:#334155;margin-bottom:8px;display:block;}
+    .upload-box{display:flex;flex-direction:column;gap:12px;margin-bottom:12px;}
+    .upload-box button{
+      width:100%;padding:12px;border-radius:12px;border:none;
+      background:linear-gradient(135deg, #2563eb, #1e40af);
+      color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.25s ease;
+    }
+    .upload-box button:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(37,99,235,0.35);
+    }
+    .upload-box input[type="file"]{display:none;}
+    .hint{font-size:12px;color:#64748b;text-align:center;}
+    .preview-container{margin-top:10px;text-align:center;}
+    .preview-container img{max-width:100%;border-radius:12px;margin-top:6px;box-shadow:0 6px 18px rgba(0,0,0,0.1);}
+    button.process-btn{
+      width:100%;margin-top:12px;padding:14px;border-radius:14px;border:none;
+      background:linear-gradient(135deg, #2563eb, #1e40af);
+      color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.25s ease;
+    }
+    button.process-btn:hover{
+      transform:translateY(-2px);box-shadow:0 14px 28px rgba(37,99,235,0.35);
+    }
+    .loading{margin-top:16px;text-align:center;font-size:14px;font-weight:500;color:#b45309;}
+    .result{margin-top:18px;padding:16px;border-radius:14px;background:linear-gradient(135deg,#f8fafc,#eef2f7);border:1px solid #e5e7eb;font-size:14px;color:#0f172a;line-height:1.7;}
+    .footer{margin-top:22px;text-align:center;font-size:12px;color:#94a3b8;}
+  </style>
 </head>
-
 <body>
 
-<div class="card">
-<h2>🇳🇬 PAYE & PIT Calculator</h2>
-<p class="subtitle">Nigeria Tax Reform Tools</p>
+  <div class="card">
+    <div class="header">
+      <div class="badge">PAYE • OCR Powered</div>
+      <h2>Muhztech PAYE Calculator</h2>
+      <p>Take a photo or upload your payslip</p>
+    </div>
 
-<!-- TABS -->
-<div class="tabs">
-  <div class="tab active" onclick="openTab('compare', this)">PAYE Comparison</div>
-  <div class="tab" onclick="openTab('pit', this)">New PIT Calculator</div>
-</div>
+    <label>Upload / Capture Payslip</label>
+    <div class="upload-box">
+      <button type="button" onclick="document.getElementById('cameraInput').click()">📷 Take Photo</button>
+      <input type="file" id="cameraInput" accept="image/*" capture>
+      <button type="button" onclick="document.getElementById('galleryInput').click()">📁 Upload from Gallery</button>
+      <input type="file" id="galleryInput" accept="image/*">
+      <div class="hint">Take a photo or select from gallery • JPG / PNG • Recommended under 3MB</div>
+    </div>
 
-<!-- ================= TAB 1: PAYE COMPARISON ================= -->
-<div id="compare" class="tab-content active">
+    <div class="preview-container" id="previewContainer"></div>
 
-<label>Monthly Gross Salary (₦)</label>
-<input type="number" id="manualSalary" placeholder="e.g. 92508">
+    <button class="process-btn" onclick="processSelectedFile()">Process Payslip</button>
 
-<label>Current Monthly PAYE (₦)</label>
-<input type="number" id="manualOldPAYE" placeholder="e.g. 5053">
+    <p class="loading" id="loading"></p>
+    <div class="result" id="result"></div>
 
-<button onclick="manualCompare()">Compare PAYE</button>
+    <div class="footer">© 2026 Muhztech · PAYE Automation System</div>
+  </div>
 
-<div class="divider">— OR USE PAYSLIP —</div>
+  <script>
+    let selectedFile = null;
+    const previewContainer = document.getElementById('previewContainer');
 
-<label>Choose Payslip Image</label>
-<input type="file" id="fileInput" accept="image/*">
-
-<button class="secondary" onclick="openCamera()">📷 Capture from Camera</button>
-<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
-
-<div class="preview" id="preview"></div>
-
-<button onclick="processPayslip()">Process Payslip</button>
-
-<p class="loading" id="loading"></p>
-<div class="result" id="result"></div>
-
-</div>
-
-<!-- ================= TAB 2: PIT WITH EXPENSES ================= -->
-<div id="pit" class="tab-content">
-
-<label>Monthly Gross Income (₦)</label>
-<input type="number" id="pitGross" placeholder="e.g. 300000">
-
-<label>Monthly Allowable Expenses (₦)</label>
-<input type="number" id="pitExpenses" placeholder="e.g. 80000">
-
-<button onclick="calculatePIT()">Calculate New PIT</button>
-
-<div class="result" id="pitResult"></div>
-
-</div>
-
-<div class="footer">© 2026 Muhztech PAYE Automation</div>
-</div>
-
-<script>
-/* ===== TAB SWITCH ===== */
-function openTab(id, el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(id).classList.add('active');
-}
-
-/* ===== TAX CONSTANTS (NEW REFORM) ===== */
-const EXEMPT = 800000;
-const BANDS = [
-  {limit:2200000, rate:0.15},
-  {limit:9000000, rate:0.18},
-  {limit:13000000, rate:0.21},
-  {limit:25000000, rate:0.23},
-  {limit:Infinity, rate:0.25}
-];
-
-/* ===== CORE TAX FUNCTIONS ===== */
-function annualTax(annual){
-  let tax = 0;
-  if(annual > EXEMPT){
-    let rem = annual - EXEMPT;
-    for(let b of BANDS){
-      if(rem <= 0) break;
-      let amt = Math.min(b.limit, rem);
-      tax += amt * b.rate;
-      rem -= amt;
+    function showPreview(file){
+      const reader = new FileReader();
+      reader.onload = e => {
+        previewContainer.innerHTML = `<img src="${e.target.result}" alt="Payslip Preview">`;
+      };
+      reader.readAsDataURL(file);
     }
-  }
-  return tax;
-}
 
-function computeNewPAYE(monthly){
-  return annualTax(monthly * 12) / 12;
-}
+    document.getElementById('cameraInput').addEventListener('change', e => {
+      if(e.target.files.length){
+        selectedFile = e.target.files[0];
+        showPreview(selectedFile);
+      }
+    });
 
-/* ===== PAYE COMPARISON ===== */
-function manualCompare(){
-  const gross = Number(manualSalary.value);
-  const oldPAYE = Number(manualOldPAYE.value);
-  if(gross <= 0){ alert("Enter valid salary"); return; }
-  showComparison(gross, oldPAYE);
-}
+    document.getElementById('galleryInput').addEventListener('change', e => {
+      if(e.target.files.length){
+        selectedFile = e.target.files[0];
+        showPreview(selectedFile);
+      }
+    });
 
-/* ===== CAMERA / FILE ===== */
-let selectedFile = null;
-function openCamera(){ cameraInput.click(); }
+    function processSelectedFile(){
+      if(!selectedFile){
+        alert("Please take a photo or upload a payslip first!");
+        return;
+      }
+      processPayslip(selectedFile);
+    }
 
-[fileInput, cameraInput].forEach(i=>{
-  i.addEventListener("change", e=>{
-    const f = e.target.files[0];
-    if(!f) return;
-    selectedFile = f;
-    const r = new FileReader();
-    r.onload = ev => preview.innerHTML = `<img src="${ev.target.result}">`;
-    r.readAsDataURL(f);
-  });
-});
+    // --- Updated processPayslip function ---
+    function processPayslip(file){
+      if(!file){
+        alert("Please upload a payslip");
+        return;
+      }
 
-/* ===== OCR ===== */
-function processPayslip(){
-  if(!selectedFile){ alert("Upload payslip"); return; }
-  loading.innerText="Reading payslip…";
+      document.getElementById("loading").innerText = "Reading payslip... Please wait";
 
-  Tesseract.recognize(selectedFile,"eng")
-  .then(({data:{text}})=>{
-    loading.innerText="";
-    const t = text.toUpperCase().replace(/₦|,/g,"").replace(/\s+/g," ");
-    const gross = extract(t,["GROSS PAY","TOTAL EMOLUMENT","TOTAL PAY","GROSS"]) || sumParts(t);
-    const oldPAYE = extract(t,["PAYE","PAY AS YOU EARN","TAX"]) || 0;
-    if(!gross){ alert("Gross not detected"); return; }
-    showComparison(gross, oldPAYE);
-  });
-}
+      Tesseract.recognize(file, 'eng', {logger: m => console.log(m)})
+      .then(({ data: { text } }) => {
+        document.getElementById("loading").innerText = "";
+        text = text.toUpperCase();
 
-/* ===== DISPLAY PAYE ===== */
-function showComparison(gross, oldPAYE){
-  const newPAYE = computeNewPAYE(gross);
-  const diff = oldPAYE - newPAYE;
-  const status = diff > 0
-    ? `<span class="good">Overpaid ₦${diff.toLocaleString()}</span>`
-    : diff < 0
-      ? `<span class="bad">Underpaid ₦${Math.abs(diff).toLocaleString()}</span>`
-      : `<span class="good">Correctly Taxed</span>`;
+        let gross = extractAmount(text, ["GROSS PAY","GROSS"]);
+        let pension = extractAmount(text, ["PENSION"]);
+        let payeCurrent = extractAmount(text, ["PAYE","PAY AS YOU EARN"]);
 
-  result.innerHTML = `
-    <b>Monthly Gross:</b> ₦${gross.toLocaleString()}<br>
-    <b>Old PAYE:</b> ₦${oldPAYE.toLocaleString()}<br>
-    <b>New PAYE:</b> ₦${newPAYE.toLocaleString()}<hr>
-    <b>Status:</b> ${status}
-  `;
-}
+        if(!gross){
+          alert("Could not detect Gross Pay. Try a clearer payslip.");
+          return;
+        }
 
-/* ===== PIT WITH EXPENSES ===== */
-function calculatePIT(){
-  const gross = Number(pitGross.value);
-  const expenses = Number(pitExpenses.value);
+        calculateNewPAYE(gross, pension||0, payeCurrent||0);
+      })
+      .catch(err => { alert("Error reading payslip"); console.error(err); });
+    }
 
-  if(gross <= 0){ alert("Enter gross income"); return; }
-  if(expenses < 0){ alert("Invalid expenses"); return; }
+    function extractAmount(text, keywords){
+      for(let key of keywords){
+        let regex = new RegExp(key+"[^0-9]*([0-9,.]+)");
+        let match = text.match(regex);
+        if(match) return Number(match[1].replace(/,/g,""));
+      }
+      return null;
+    }
 
-  const netMonthly = Math.max(gross - expenses, 0);
-  const annualNet = netMonthly * 12;
-  const tax = annualTax(annualNet);
-
-  pitResult.innerHTML = `
-    <b>Net Monthly Income:</b> ₦${netMonthly.toLocaleString()}<br>
-    <b>Annual Net Income:</b> ₦${annualNet.toLocaleString()}<br>
-    <b>Tax-Free Allowance:</b> ₦${EXEMPT.toLocaleString()}<br>
-    <b>Annual PIT:</b> ₦${tax.toLocaleString()}<br>
-    <b>Monthly PIT:</b> ₦${(tax/12).toLocaleString()}
-  `;
-}
-
-/* ===== HELPERS ===== */
-function extract(text, keys){
-  for(let k of keys){
-    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})");
-    let m = text.match(r);
-    if(m) return Number(m[1]);
-  }
-  return null;
-}
-
-function sumParts(text){
-  let sum = 0;
-  ["BASIC","HOUSING","TRANSPORT","ALLOWANCE","RENT"].forEach(k=>{
-    let r = new RegExp(k+"[^0-9]{0,15}([0-9]{3,9})","g");
-    let m;
-    while((m = r.exec(text)) !== null) sum += Number(m[1]);
-  });
-  return sum > 0 ? sum : null;
-}
-</script>
-
+    function calculateNewPAYE(monthlyGross,pensionMonthly,currentPAYE){
+      let annualIncome = monthlyGross*12;
+      let pensionAnnual = pensionMonthly*12;
+      let taxableIncome = annualIncome - pensionAnnual;
+      let tax = 0;
+      if(taxableIncome>800000){
+        let remaining = taxableIncome - 800000;
+        let bands=[
+          {limit:2200000, rate:0.15},
+          {limit:9000000, rate:0.18},
+          {limit:13000000, rate:0.21},
+          {limit:25000000, rate:0.23},
+          {limit:Infinity, rate:0.25}
+        ];
+        for(let band of bands){
+          if(remaining<=0) break;
+          let amount=Math.min(band.limit,remaining);
+          tax+=amount*band.rate;
+          remaining-=amount;
+        }
+      }
+      let monthlyNewPAYE = tax/12;
+      let difference = currentPAYE - monthlyNewPAYE;
+      document.getElementById("result").innerHTML=`
+        <p><b>Detected Gross Pay:</b> ₦${monthlyGross.toLocaleString()}</p>
+        <p><b>Detected Pension:</b> ₦${pensionMonthly.toLocaleString()}</p>
+        <p><b>Current PAYE:</b> ₦${currentPAYE.toLocaleString()}</p>
+        <hr>
+        <p><b>Correct PAYE (New Law):</b> ₦${monthlyNewPAYE.toLocaleString()}</p>
+        <p><b>Difference:</b> ₦${difference.toLocaleString()}</p>
+      `;
+    }
+  </script>
 </body>
 </html>
